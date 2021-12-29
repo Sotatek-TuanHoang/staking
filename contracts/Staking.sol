@@ -32,6 +32,14 @@ contract Staking is StakingStorage, StakingEvent, Ownable {
         return linearPoolInfo[pid];
     }
 
+    function getLengthPool() public view returns (uint256) {
+        return linearPoolInfo.length;
+    }
+
+    function getAllPool() public view returns (LinearPoolInfo[] memory) {
+        return linearPoolInfo;
+    }
+
     function getStakedAmount(uint256 pid, address staker) public view pidValid(pid) returns (uint256) {
         uint256 currentIndex = stakedMapIndex[pid][staker];
         Checkpoint memory current = stakedMap[pid][staker][currentIndex];
