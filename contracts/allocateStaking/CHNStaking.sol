@@ -14,6 +14,7 @@ contract CHNStaking is Ownable {
     struct UserInfo {
         uint256 amount;
         uint256 rewardDebt;
+        uint256 pendingTokenReward;
     }
     // Info of each pool.
     struct PoolInfo {
@@ -21,6 +22,7 @@ contract CHNStaking is Ownable {
         uint256 allocPoint;
         uint256 lastRewardBlock;
         uint256 accCHNPerShare;
+        uint256 totalAmountStake;
     }
 
     IERC20 public rewardToken;
@@ -75,7 +77,8 @@ contract CHNStaking is Ownable {
                 stakeToken: _stakeToken,
                 allocPoint: _allocPoint,
                 lastRewardBlock: lastRewardBlock,
-                accCHNPerShare: 0
+                accCHNPerShare: 0,
+                totalAmountStake: 0
             })
         );
     }
@@ -133,7 +136,7 @@ contract CHNStaking is Ownable {
                 reward.mul(1e12).div(supply)
             );
         }
-        return user.amount.mul(accCHNPerShare).div(1e12).sub(user.rewardDebt);
+        return user.amount.mul(accCHNPerShare).div(1e12).sub(user.rewardDebt).add(user.pendingTokenReward);
     }
 
     // Update reward vairables for all pools. Be careful of gas spending!
@@ -175,8 +178,9 @@ contract CHNStaking is Ownable {
                 user.amount.mul(pool.accCHNPerShare).div(1e12).sub(
                     user.rewardDebt
                 );
-            safeCHNTransfer(msg.sender, pending);
+            user.pendingTokenReward = user.pendingTokenReward.add(pending);
         }
+        pool.totalAmountStake = pool.totalAmountStake.add(_amount);
         pool.stakeToken.safeTransferFrom(
             address(msg.sender),
             address(this),
@@ -196,8 +200,10 @@ contract CHNStaking is Ownable {
             user.amount.mul(pool.accCHNPerShare).div(1e12).sub(
                 user.rewardDebt
             );
-        safeCHNTransfer(msg.sender, pending);
+        pending = pending.add(user.pendingTokenReward);
+        user.pendingTokenReward = 0;
         user.amount = user.amount.sub(_amount);
+        pool.totalAmountStake = pool.totalAmountStake.sub(_amount);
         user.rewardDebt = user.amount.mul(pool.accCHNPerShare).div(1e12);
         pool.stakeToken.safeTransfer(address(msg.sender), _amount);
         emit Withdraw(msg.sender, _pid, _amount);
@@ -208,14 +214,10 @@ contract CHNStaking is Ownable {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         pool.stakeToken.safeTransfer(address(msg.sender), user.amount);
+        pool.totalAmountStake = pool.totalAmountStake.sub(user.amount);
         emit EmergencyWithdraw(msg.sender, _pid, user.amount);
         user.amount = 0;
         user.rewardDebt = 0;
-    }
-
-    function safeCHNTransfer(address _to, uint256 _amount) internal {
-        uint256 balance = rewardToken.balanceOf(address(this));
-        require(_amount <= balance, "REWARD AMOUNT: NOT ENOUGH");
-        rewardToken.transfer(_to, _amount);
+        user.pendingTokenReward = 0;
     }
 }
