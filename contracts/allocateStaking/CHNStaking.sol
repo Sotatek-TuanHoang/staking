@@ -1,0 +1,221 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract CHNStaking is Ownable {
+    using SafeMath for uint256;
+    using SafeERC20 for IERC20;
+    // Info of each user.
+    struct UserInfo {
+        uint256 amount;
+        uint256 rewardDebt;
+    }
+    // Info of each pool.
+    struct PoolInfo {
+        IERC20 stakeToken;
+        uint256 allocPoint;
+        uint256 lastRewardBlock;
+        uint256 accCHNPerShare;
+    }
+
+    IERC20 public rewardToken;
+    uint256 public rewardPerBlock;
+    PoolInfo[] public poolInfo;
+    mapping(uint256 => mapping(address => UserInfo)) public userInfo;
+    uint256 public totalAllocPoint = 0;
+    uint256 public startBlock;
+    uint256 public bonusEndBlock;
+    uint256 public BONUS_MULTIPLIER;
+    event Stake(address indexed user, uint256 indexed pid, uint256 amount);
+    event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
+    event EmergencyWithdraw(
+        address indexed user,
+        uint256 indexed pid,
+        uint256 amount
+    );
+
+    constructor(
+        IERC20 _rewardToken,
+        uint256 _rewardPerBlock,
+        uint256 _startBlock,
+        uint256 _bonusEndBlock,
+        uint256 _multiplier
+    ) public {
+        rewardToken = _rewardToken;
+        rewardPerBlock = _rewardPerBlock;
+        bonusEndBlock = _bonusEndBlock;
+        startBlock = _startBlock;
+        BONUS_MULTIPLIER = _multiplier;
+    }
+
+    function poolLength() external view returns (uint256) {
+        return poolInfo.length;
+    }
+
+    // Add a new stake to the pool. Can only be called by the owner.
+    // XXX DO NOT add the same stake token more than once. Rewards will be messed up if you do.
+    function add(
+        uint256 _allocPoint,
+        IERC20 _stakeToken,
+        bool _withUpdate
+    ) public onlyOwner {
+        if (_withUpdate) {
+            massUpdatePools();
+        }
+        uint256 lastRewardBlock =
+            block.number > startBlock ? block.number : startBlock;
+        totalAllocPoint = totalAllocPoint.add(_allocPoint);
+        poolInfo.push(
+            PoolInfo({
+                stakeToken: _stakeToken,
+                allocPoint: _allocPoint,
+                lastRewardBlock: lastRewardBlock,
+                accCHNPerShare: 0
+            })
+        );
+    }
+
+    // Update the given pool's SUSHI allocation point. Can only be called by the owner.
+    function set(
+        uint256 _pid,
+        uint256 _allocPoint,
+        bool _withUpdate
+    ) public onlyOwner {
+        if (_withUpdate) {
+            massUpdatePools();
+        }
+        totalAllocPoint = totalAllocPoint.sub(poolInfo[_pid].allocPoint).add(
+            _allocPoint
+        );
+        poolInfo[_pid].allocPoint = _allocPoint;
+    }
+
+    // Return reward multiplier over the given _from to _to block.
+    function getMultiplier(uint256 _from, uint256 _to)
+        public
+        view
+        returns (uint256)
+    {
+        if (_to <= bonusEndBlock) {
+            return _to.sub(_from).mul(BONUS_MULTIPLIER);
+        } else if (_from >= bonusEndBlock) {
+            return _to.sub(_from);
+        } else {
+            return
+                bonusEndBlock.sub(_from).mul(BONUS_MULTIPLIER).add(
+                    _to.sub(bonusEndBlock)
+                );
+        }
+    }
+
+    function pendingReward(uint256 _pid, address _user)
+        external
+        view
+        returns (uint256)
+    {
+        PoolInfo storage pool = poolInfo[_pid];
+        UserInfo storage user = userInfo[_pid][_user];
+        uint256 accCHNPerShare = pool.accCHNPerShare;
+        uint256 supply = pool.stakeToken.balanceOf(address(this));
+        if (block.number > pool.lastRewardBlock && supply != 0) {
+            uint256 multiplier =
+                getMultiplier(pool.lastRewardBlock, block.number);
+            uint256 reward =
+                multiplier.mul(rewardPerBlock).mul(pool.allocPoint).div(
+                    totalAllocPoint
+                );
+            accCHNPerShare = accCHNPerShare.add(
+                reward.mul(1e12).div(supply)
+            );
+        }
+        return user.amount.mul(accCHNPerShare).div(1e12).sub(user.rewardDebt);
+    }
+
+    // Update reward vairables for all pools. Be careful of gas spending!
+    function massUpdatePools() public {
+        uint256 length = poolInfo.length;
+        for (uint256 pid = 0; pid < length; ++pid) {
+            updatePool(pid);
+        }
+    }
+
+    // Update reward variables of the given pool to be up-to-date.
+    function updatePool(uint256 _pid) public {
+        PoolInfo storage pool = poolInfo[_pid];
+        if (block.number <= pool.lastRewardBlock) {
+            return;
+        }
+        uint256 supply = pool.stakeToken.balanceOf(address(this));
+        if (supply == 0) {
+            pool.lastRewardBlock = block.number;
+            return;
+        }
+        uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
+        uint256 reward =
+            multiplier.mul(rewardPerBlock).mul(pool.allocPoint).div(
+                totalAllocPoint
+            );
+        pool.accCHNPerShare = pool.accCHNPerShare.add(
+            reward.mul(1e12).div(supply)
+        );
+        pool.lastRewardBlock = block.number;
+    }
+
+    function stake(uint256 _pid, uint256 _amount) public {
+        PoolInfo storage pool = poolInfo[_pid];
+        UserInfo storage user = userInfo[_pid][msg.sender];
+        updatePool(_pid);
+        if (user.amount > 0) {
+            uint256 pending =
+                user.amount.mul(pool.accCHNPerShare).div(1e12).sub(
+                    user.rewardDebt
+                );
+            safeCHNTransfer(msg.sender, pending);
+        }
+        pool.stakeToken.safeTransferFrom(
+            address(msg.sender),
+            address(this),
+            _amount
+        );
+        user.amount = user.amount.add(_amount);
+        user.rewardDebt = user.amount.mul(pool.accCHNPerShare).div(1e12);
+        emit Stake(msg.sender, _pid, _amount);
+    }
+
+    function withdraw(uint256 _pid, uint256 _amount) public {
+        PoolInfo storage pool = poolInfo[_pid];
+        UserInfo storage user = userInfo[_pid][msg.sender];
+        require(user.amount >= _amount, "withdraw: not good");
+        updatePool(_pid);
+        uint256 pending =
+            user.amount.mul(pool.accCHNPerShare).div(1e12).sub(
+                user.rewardDebt
+            );
+        safeCHNTransfer(msg.sender, pending);
+        user.amount = user.amount.sub(_amount);
+        user.rewardDebt = user.amount.mul(pool.accCHNPerShare).div(1e12);
+        pool.stakeToken.safeTransfer(address(msg.sender), _amount);
+        emit Withdraw(msg.sender, _pid, _amount);
+    }
+
+    // Withdraw without caring about rewards. EMERGENCY ONLY.
+    function emergencyWithdraw(uint256 _pid) public {
+        PoolInfo storage pool = poolInfo[_pid];
+        UserInfo storage user = userInfo[_pid][msg.sender];
+        pool.stakeToken.safeTransfer(address(msg.sender), user.amount);
+        emit EmergencyWithdraw(msg.sender, _pid, user.amount);
+        user.amount = 0;
+        user.rewardDebt = 0;
+    }
+
+    function safeCHNTransfer(address _to, uint256 _amount) internal {
+        uint256 balance = rewardToken.balanceOf(address(this));
+        require(_amount <= balance, "REWARD AMOUNT: NOT ENOUGH");
+        rewardToken.transfer(_to, _amount);
+    }
+}
