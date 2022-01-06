@@ -124,7 +124,7 @@ contract CHNStaking is Ownable {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
         uint256 accCHNPerShare = pool.accCHNPerShare;
-        uint256 supply = pool.stakeToken.balanceOf(address(this));
+        uint256 supply = pool.totalAmountStake;
         if (block.number > pool.lastRewardBlock && supply != 0) {
             uint256 multiplier =
                 getMultiplier(pool.lastRewardBlock, block.number);
@@ -153,7 +153,7 @@ contract CHNStaking is Ownable {
         if (block.number <= pool.lastRewardBlock) {
             return;
         }
-        uint256 supply = pool.stakeToken.balanceOf(address(this));
+        uint256 supply = pool.totalAmountStake;
         if (supply == 0) {
             pool.lastRewardBlock = block.number;
             return;
@@ -201,6 +201,7 @@ contract CHNStaking is Ownable {
                 user.rewardDebt
             );
         pending = pending.add(user.pendingTokenReward);
+        pool.stakeToken.safeTransfer(address(msg.sender), pending);
         user.pendingTokenReward = 0;
         user.amount = user.amount.sub(_amount);
         pool.totalAmountStake = pool.totalAmountStake.sub(_amount);
