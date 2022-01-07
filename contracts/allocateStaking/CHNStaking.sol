@@ -214,11 +214,12 @@ contract CHNStaking is Ownable {
     function emergencyWithdraw(uint256 _pid) public {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
-        pool.stakeToken.safeTransfer(address(msg.sender), user.amount);
-        pool.totalAmountStake = pool.totalAmountStake.sub(user.amount);
-        emit EmergencyWithdraw(msg.sender, _pid, user.amount);
+        uint256 userAmount = user.amount;
         user.amount = 0;
         user.rewardDebt = 0;
         user.pendingTokenReward = 0;
+        pool.totalAmountStake = pool.totalAmountStake.sub(userAmount);
+        pool.stakeToken.safeTransfer(address(msg.sender), userAmount);
+        emit EmergencyWithdraw(msg.sender, _pid, userAmount);
     }
 }
