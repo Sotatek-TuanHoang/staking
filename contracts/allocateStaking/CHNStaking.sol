@@ -34,7 +34,7 @@ contract CHNStaking is Ownable {
     uint256 public bonusEndBlock;
     uint256 public BONUS_MULTIPLIER;
     event Stake(address indexed user, uint256 indexed pid, uint256 amount);
-    event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
+    event Withdraw(address indexed user, uint256 indexed pid, uint256 amount, uint256 reward);
     event EmergencyWithdraw(
         address indexed user,
         uint256 indexed pid,
@@ -57,6 +57,11 @@ contract CHNStaking is Ownable {
 
     function poolLength() external view returns (uint256) {
         return poolInfo.length;
+    }
+
+    function getStakingAmount(uint256 pid, address user) public view returns (uint256) {
+        UserInfo memory info = userInfo[pid][user];
+        return info.amount;
     }
 
     // Add a new stake to the pool. Can only be called by the owner.
@@ -207,7 +212,7 @@ contract CHNStaking is Ownable {
         pool.totalAmountStake = pool.totalAmountStake.sub(_amount);
         user.rewardDebt = user.amount.mul(pool.accCHNPerShare).div(1e12);
         pool.stakeToken.safeTransfer(address(msg.sender), _amount);
-        emit Withdraw(msg.sender, _pid, _amount);
+        emit Withdraw(msg.sender, _pid, _amount, pending);
     }
 
     // Withdraw without caring about rewards. EMERGENCY ONLY.
