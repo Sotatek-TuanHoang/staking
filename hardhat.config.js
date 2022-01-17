@@ -55,7 +55,7 @@ module.exports = {
         },
       },
       {
-        version: "0.5.16",
+        version: "0.8.3",
         settings: {
           evmVersion: "istanbul",
           optimizer: {
