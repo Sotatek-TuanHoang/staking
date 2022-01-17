@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.3;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract CHNStaking is Ownable {
+contract CHNStaking is OwnableUpgradeable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     // Info of each user.
@@ -25,14 +25,6 @@ contract CHNStaking is Ownable {
         uint256 totalAmountStake;
     }
 
-    IERC20 public rewardToken;
-    uint256 public rewardPerBlock;
-    PoolInfo[] public poolInfo;
-    mapping(uint256 => mapping(address => UserInfo)) public userInfo;
-    uint256 public totalAllocPoint = 0;
-    uint256 public startBlock;
-    uint256 public bonusEndBlock;
-    uint256 public BONUS_MULTIPLIER;
     event Stake(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount, uint256 reward);
     event EmergencyWithdraw(
@@ -41,13 +33,23 @@ contract CHNStaking is Ownable {
         uint256 amount
     );
 
-    constructor(
+    IERC20 public rewardToken;
+    uint256 public rewardPerBlock;
+    PoolInfo[] public poolInfo;
+    mapping(uint256 => mapping(address => UserInfo)) public userInfo;
+    uint256 public totalAllocPoint = 0;
+    uint256 public startBlock;
+    uint256 public bonusEndBlock;
+    uint256 public BONUS_MULTIPLIER;
+
+    function initialize(
         IERC20 _rewardToken,
         uint256 _rewardPerBlock,
         uint256 _startBlock,
         uint256 _bonusEndBlock,
         uint256 _multiplier
-    ) public {
+    ) public initializer {
+        __Ownable_init();
         rewardToken = _rewardToken;
         rewardPerBlock = _rewardPerBlock;
         bonusEndBlock = _bonusEndBlock;

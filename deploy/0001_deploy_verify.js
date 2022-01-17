@@ -7,18 +7,32 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
 
   console.log( {deployer} );
 
-  const staking = await deploy("CHNStaking", {
+  // const staking = await deploy("CHNStaking", {
+  //   from: deployer,
+  //   args: [process.env.CHN_ADDRESS, process.env.REWARD_PER_BLOCK, process.env.START_BLOCK, process.env.END_BONUS_BLOCK, process.env.MULTIPLIER],
+  //   log: true,
+  // });
+
+  await deploy("CHNStaking", {
     from: deployer,
-    args: [process.env.CHN_ADDRESS, process.env.REWARD_PER_BLOCK, process.env.START_BLOCK, process.env.END_BONUS_BLOCK, process.env.MULTIPLIER],
     log: true,
+    proxy: {
+      proxyContract: "OptimizedTransparentProxy",
+      execute: {
+        init: {
+          methodName: "initialize",
+          args: [
+            process.env.CHN_ADDRESS,
+            process.env.REWARD_PER_BLOCK,
+            process.env.START_BLOCK,
+            process.env.END_BONUS_BLOCK,
+            process.env.MULTIPLIER
+          ],
+        }
+      },
+    },
   });
 
-  await sleep(60000);
-
-  await hre.run('verify:verify', {
-    address: staking.address,
-    constructorArguments: [process.env.CHN_ADDRESS, process.env.REWARD_PER_BLOCK, process.env.START_BLOCK, process.env.END_BONUS_BLOCK, process.env.MULTIPLIER],
-  })
 };
 
 module.exports = func;

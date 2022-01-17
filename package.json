@@ -24,11 +24,11 @@
     "ethereum-waffle": "3.3.0",
     "ethers": "5.2.0",
     "hardhat": "2.7.0",
-    "hardhat-deploy": "0.7.9"
+    "hardhat-deploy": "0.9.3"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.3.2",
-    "@openzeppelin/contracts-upgradeable": "^4.3.3",
+    "@openzeppelin/contracts-upgradeable": "^4.4.2",
     "@setprotocol/index-coop-contracts": "^0.0.26",
     "@typechain/hardhat": "^2.3.0",
     "chai-as-promised": "^7.1.1",

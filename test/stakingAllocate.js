@@ -1,4 +1,3 @@
-const ERC20Token = artifacts.require('ERC20Token');
 const FakeToken = artifacts.require('FakeToken');
 const Staking = artifacts.require('CHNStaking');
 const { default: BigNumber } = require('bignumber.js');
