@@ -41,13 +41,15 @@ contract CHNStaking is OwnableUpgradeable {
     uint256 public startBlock;
     uint256 public bonusEndBlock;
     uint256 public BONUS_MULTIPLIER;
+    address public rewardVault;
 
     function initialize(
         IERC20 _rewardToken,
         uint256 _rewardPerBlock,
         uint256 _startBlock,
         uint256 _bonusEndBlock,
-        uint256 _multiplier
+        uint256 _multiplier,
+        address _rewardVault
     ) public initializer {
         __Ownable_init();
         rewardToken = _rewardToken;
@@ -55,6 +57,7 @@ contract CHNStaking is OwnableUpgradeable {
         bonusEndBlock = _bonusEndBlock;
         startBlock = _startBlock;
         BONUS_MULTIPLIER = _multiplier;
+        rewardVault = _rewardVault;
     }
 
     function poolLength() external view returns (uint256) {
@@ -207,9 +210,9 @@ contract CHNStaking is OwnableUpgradeable {
             user.amount.mul(pool.accCHNPerShare).div(1e12).sub(
                 user.rewardDebt
             );
-        pending = pending.add(user.pendingTokenReward);
-        pool.stakeToken.safeTransfer(address(msg.sender), pending);
-        user.pendingTokenReward = 0;
+        // pending = pending.add(user.pendingTokenReward);
+        // pool.stakeToken.safeTransfer(address(msg.sender), pending);
+        user.pendingTokenReward = user.pendingTokenReward + pending;
         user.amount = user.amount.sub(_amount);
         pool.totalAmountStake = pool.totalAmountStake.sub(_amount);
         user.rewardDebt = user.amount.mul(pool.accCHNPerShare).div(1e12);
@@ -228,5 +231,20 @@ contract CHNStaking is OwnableUpgradeable {
         pool.totalAmountStake = pool.totalAmountStake.sub(userAmount);
         pool.stakeToken.safeTransfer(address(msg.sender), userAmount);
         emit EmergencyWithdraw(msg.sender, _pid, userAmount);
+    }
+
+    function claimRewardFromVault(address userAddress, uint256 pid) public returns (uint256) {
+        require(msg.sender == rewardVault, "Ownable: only reward vault");
+        PoolInfo storage pool = poolInfo[pid];
+        UserInfo storage user = userInfo[pid][userAddress];
+        updatePool(pid);
+        uint256 pending =
+            user.amount.mul(pool.accCHNPerShare).div(1e12).sub(
+                user.rewardDebt
+            );
+        pending = pending + user.pendingTokenReward;
+        user.pendingTokenReward = 0;
+        user.rewardDebt = user.amount.mul(pool.accCHNPerShare).div(1e12);
+        return pending;
     }
 }
