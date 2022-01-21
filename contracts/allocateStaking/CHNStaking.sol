@@ -41,20 +41,23 @@ contract CHNStaking is OwnableUpgradeable {
     uint256 public startBlock;
     uint256 public bonusEndBlock;
     uint256 public BONUS_MULTIPLIER;
+    address public rewardVault;
 
     function initialize(
         IERC20 _rewardToken,
         uint256 _rewardPerBlock,
         uint256 _startBlock,
         uint256 _bonusEndBlock,
-        uint256 _multiplier
+        uint256 _multiplier,
+        address _rewardVault
     ) public initializer {
         __Ownable_init();
         rewardToken = _rewardToken;
         rewardPerBlock = _rewardPerBlock;
-        bonusEndBlock = _bonusEndBlock;
         startBlock = _startBlock;
+        bonusEndBlock = _bonusEndBlock;
         BONUS_MULTIPLIER = _multiplier;
+        rewardVault = _rewardVault;
     }
 
     function poolLength() external view returns (uint256) {
@@ -143,7 +146,7 @@ contract CHNStaking is OwnableUpgradeable {
                 reward.mul(1e12).div(supply)
             );
         }
-        return user.amount.mul(accCHNPerShare).div(1e12).sub(user.rewardDebt).add(user.pendingTokenReward);
+        return user.amount.mul(accCHNPerShare).div(1e12).add(user.pendingTokenReward).sub(user.rewardDebt);
     }
 
     // Update reward vairables for all pools. Be careful of gas spending!
@@ -207,14 +210,14 @@ contract CHNStaking is OwnableUpgradeable {
             user.amount.mul(pool.accCHNPerShare).div(1e12).sub(
                 user.rewardDebt
             );
-        pending = pending.add(user.pendingTokenReward);
-        pool.stakeToken.safeTransfer(address(msg.sender), pending);
-        user.pendingTokenReward = 0;
+        // pending = pending.add(user.pendingTokenReward);
+        // pool.stakeToken.safeTransfer(address(msg.sender), pending);
+        user.pendingTokenReward = user.pendingTokenReward + pending;
         user.amount = user.amount.sub(_amount);
         pool.totalAmountStake = pool.totalAmountStake.sub(_amount);
         user.rewardDebt = user.amount.mul(pool.accCHNPerShare).div(1e12);
         pool.stakeToken.safeTransfer(address(msg.sender), _amount);
-        emit Withdraw(msg.sender, _pid, _amount, pending);
+        emit Withdraw(msg.sender, _pid, _amount, 0);
     }
 
     // Withdraw without caring about rewards. EMERGENCY ONLY.
@@ -228,5 +231,20 @@ contract CHNStaking is OwnableUpgradeable {
         pool.totalAmountStake = pool.totalAmountStake.sub(userAmount);
         pool.stakeToken.safeTransfer(address(msg.sender), userAmount);
         emit EmergencyWithdraw(msg.sender, _pid, userAmount);
+    }
+
+    function claimRewardFromVault(address userAddress, uint256 pid) public returns (uint256) {
+        require(msg.sender == rewardVault, "Ownable: only reward vault");
+        PoolInfo storage pool = poolInfo[pid];
+        UserInfo storage user = userInfo[pid][userAddress];
+        updatePool(pid);
+        uint256 pending =
+            user.amount.mul(pool.accCHNPerShare).div(1e12).sub(
+                user.rewardDebt
+            );
+        pending = pending + user.pendingTokenReward;
+        user.pendingTokenReward = 0;
+        user.rewardDebt = user.amount.mul(pool.accCHNPerShare).div(1e12);
+        return pending;
     }
 }

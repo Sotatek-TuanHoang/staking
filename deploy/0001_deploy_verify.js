@@ -7,11 +7,11 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
 
   console.log( {deployer} );
 
-  // const staking = await deploy("CHNStaking", {
-  //   from: deployer,
-  //   args: [process.env.CHN_ADDRESS, process.env.REWARD_PER_BLOCK, process.env.START_BLOCK, process.env.END_BONUS_BLOCK, process.env.MULTIPLIER],
-  //   log: true,
-  // });
+  const rewardVault = await deploy("CHNReward", {
+    from: deployer,
+    args: [process.env.CHN_ADDRESS],
+    log: true,
+  });
 
   await deploy("CHNStaking", {
     from: deployer,
@@ -26,7 +26,8 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
             process.env.REWARD_PER_BLOCK,
             process.env.START_BLOCK,
             process.env.END_BONUS_BLOCK,
-            process.env.MULTIPLIER
+            process.env.MULTIPLIER,
+            rewardVault.address
           ],
         }
       },
