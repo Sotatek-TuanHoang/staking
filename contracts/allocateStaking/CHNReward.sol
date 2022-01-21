@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-interface CHNStaking {
+interface CHNStakingInterface {
     function claimRewardFromVault(address userAddress, uint256 pid) external returns (uint256);
 }
 
@@ -17,14 +17,14 @@ contract CHNReward is Ownable {
     event GrantDAO(address indexed user, uint256 amount);
 
     IERC20 public rewardToken;
-    CHNStaking public staking;
+    CHNStakingInterface public staking;
 
     constructor(IERC20 _rewardToken) Ownable() {
         rewardToken = _rewardToken;
     }
 
     function changeStakingAdderss(address _staking) public onlyOwner {
-        staking = CHNStaking(_staking);
+        staking = CHNStakingInterface(_staking);
     }
 
     function claimReward(uint256 pid) public {

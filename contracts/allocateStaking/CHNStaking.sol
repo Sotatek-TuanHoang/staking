@@ -54,8 +54,8 @@ contract CHNStaking is OwnableUpgradeable {
         __Ownable_init();
         rewardToken = _rewardToken;
         rewardPerBlock = _rewardPerBlock;
-        bonusEndBlock = _bonusEndBlock;
         startBlock = _startBlock;
+        bonusEndBlock = _bonusEndBlock;
         BONUS_MULTIPLIER = _multiplier;
         rewardVault = _rewardVault;
     }
@@ -146,7 +146,7 @@ contract CHNStaking is OwnableUpgradeable {
                 reward.mul(1e12).div(supply)
             );
         }
-        return user.amount.mul(accCHNPerShare).div(1e12).sub(user.rewardDebt).add(user.pendingTokenReward);
+        return user.amount.mul(accCHNPerShare).div(1e12).add(user.pendingTokenReward).sub(user.rewardDebt);
     }
 
     // Update reward vairables for all pools. Be careful of gas spending!
@@ -217,7 +217,7 @@ contract CHNStaking is OwnableUpgradeable {
         pool.totalAmountStake = pool.totalAmountStake.sub(_amount);
         user.rewardDebt = user.amount.mul(pool.accCHNPerShare).div(1e12);
         pool.stakeToken.safeTransfer(address(msg.sender), _amount);
-        emit Withdraw(msg.sender, _pid, _amount, pending);
+        emit Withdraw(msg.sender, _pid, _amount, 0);
     }
 
     // Withdraw without caring about rewards. EMERGENCY ONLY.
